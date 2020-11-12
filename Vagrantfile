@@ -20,6 +20,9 @@ Vagrant.configure(2) do |config|
   # boxes will only be checked for updates when the user runs
   # `vagrant box outdated`. This is not recommended.
   # config.vm.box_check_update = false
+  if Vagrant.has_plugin?("vagrant-vbguest")
+    config.vbguest.auto_update = false
+  end
 
   # Create a forwarded port mapping which allows access to a specific port
   # within the machine from a port on the host machine. In the example below,
@@ -128,17 +131,17 @@ Vagrant.configure(2) do |config|
     echo 'R! /tmp 1777 root root ~0' > /etc/tmpfiles.d/boot.conf
   SHELL
   config.vm.define "leader" do |leader|
-    config.vm.hostname = "leader.local"
-    config.vm.network "public_network", ip: "192.168.0.1", hostname: true
+    leader.vm.hostname = "leader.local"
+    leader.vm.network "private_network", ip: "192.168.10.21"
   end
 
   config.vm.define "alice" do |alice|
-    config.vm.hostname = "alice.local"
-    config.vm.network "public_network", ip: "192.168.0.2", hostname: true
+    alice.vm.hostname = "alice.local"
+    alice.vm.network "private_network", ip: "192.168.10.22"
   end
 
   config.vm.define "bob" do |bob|
-    config.vm.hostname = "bob.local"
-    config.vm.network "public_network", ip: "192.168.0.3", hostname: true
+    bob.vm.hostname = "bob.local"
+    bob.vm.network "private_network", ip: "192.168.10.23"
   end
 end
