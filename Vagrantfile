@@ -94,6 +94,12 @@ Vagrant.configure(2) do |config|
   	./configure
   	make KERNEL_MODULES=false
 
+    # Download Panama
+    wget https://github.com/jwons/prov-audit/archive/main.zip
+    unzip main.zip 
+    mv prov-audit-main panama
+    sudo pip install zmq
+
   	# Download and Install CamFlow
   	curl -s https://packagecloud.io/install/repositories/camflow/provenance/script.rpm.sh | sudo bash
   	sudo dnf -y install camflow nano
@@ -119,16 +125,21 @@ Vagrant.configure(2) do |config|
 
 
     # install Docker
-    sudo dnf -y install docker
+    ##sudo dnf -y install docker
     # enable docker
-    sudo systemctl enable docker
+    ##sudo systemctl enable docker
     # need to do that to get docker to work...
     # see (https://github.com/docker/cli/issues/297#issuecomment-547022631)
-    sudo grubby --update-kernel=ALL --args="systemd.unified_cgroup_hierarchy=0"
+    ##sudo grubby --update-kernel=ALL --args="systemd.unified_cgroup_hierarchy=0"
 
     # make it so that /tmp is cleaned on reboot
     touch /etc/tmpfiles.d/boot.conf
     echo 'R! /tmp 1777 root root ~0' > /etc/tmpfiles.d/boot.conf
+
+    echo "alias spade=\"~/SPADE/bin/spade\"" >> ~/.bashrc
+    echo "alias neo4j=\"~/SPADE/lib/neo4j-community-4.1.1/bin/neo4j\"" >> ~/.bashrc
+
+    pip install zmq --user
   SHELL
   config.vm.define "leader" do |leader|
     leader.vm.hostname = "leader.local"
