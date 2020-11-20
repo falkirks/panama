@@ -110,8 +110,8 @@ Vagrant.configure(2) do |config|
   	# Uncomment the format recognized by SPADE
   	sudo sed -i 's/;format=spade_json/format=spade_json/' /etc/camflowd.ini
   	# Use FIFO
-  	sudo sed -i 's/;output=fifo/output=fifo/' /etc/camflowd.ini
-  	sudo sed -i 's/output=log/;output=log/' /etc/camflowd.ini
+  	#sudo sed -i 's/;output=fifo/output=fifo/' /etc/camflowd.ini
+  	#sudo sed -i 's/output=log/;output=log/' /etc/camflowd.ini
 
   	# Enable camflow service
   	sudo systemctl enable camconfd.service
@@ -133,6 +133,14 @@ Vagrant.configure(2) do |config|
   config.vm.define "leader" do |leader|
     leader.vm.hostname = "leader.local"
     leader.vm.network "private_network", ip: "192.168.10.21"
+    leader.vm.network "forwarded_port", guest: 7474, host: 7474
+    leader.vm.network "forwarded_port", guest: 7687, host: 7687
+    leader.vm.provision "shell", run: "always", inline: <<-SHELL
+      sudo /home/vagrant/SPADE/bin/spade start
+      sudo /home/vagrant/SPADE/lib/neo4j-community-4.1.1/bin/neo4j start
+      # sleep 5
+      # echo 'add storage Neo4j' | sudo /home/vagrant/SPADE/bin/spade control
+    SHELL
   end
 
   config.vm.define "alice" do |alice|
