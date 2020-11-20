@@ -45,6 +45,9 @@ Vagrant.configure(2) do |config|
   # config.vm.synced_folder "../data", "/vagrant_data"
   config.vm.synced_folder "./guest", "/vagrant", create: true, owner: 'vagrant', disabled: false, type: 'virtualbox'
 
+  # This installs our patched version of SPADE to the remote machine
+  config.vm.synced_folder "./SPADE", "/home/vagrant/SPADE", create: true, owner: 'root', disabled: false, type: 'virtualbox'
+
   # Provider-specific configuration so you can fine-tune various
   # backing providers for Vagrant. These expose provider-specific options.
   # Example for VirtualBox:
@@ -61,6 +64,7 @@ Vagrant.configure(2) do |config|
    # Customize VM name
    # vb.name = "CamFlow-SPADE"
   end
+
   #
   # View the documentation for the provider you are using for more
   # information on available options.
@@ -86,13 +90,10 @@ Vagrant.configure(2) do |config|
   	sudo dnf -y install java-11-openjdk-devel.x86_64
   	# Download SPADE
   	sudo dnf -y install audit fuse-devel fuse-libs git iptables kernel-devel-`uname -r` lsof uthash-devel curl cmake clang
-  	wget https://github.com/ashish-gehani/SPADE/archive/master.zip
-  	unzip master.zip
-  	mv SPADE-master SPADE
-  	cd SPADE
-  	# Build SPADE
-  	./configure
-  	make KERNEL_MODULES=false
+    cd SPADE
+    # Build SPADE
+    ./configure
+    make KERNEL_MODULES=false
 
     # Download Panama
     wget https://github.com/jwons/prov-audit/archive/main.zip
@@ -146,9 +147,16 @@ Vagrant.configure(2) do |config|
     leader.vm.network "private_network", ip: "192.168.10.21"
     leader.vm.network "forwarded_port", guest: 7474, host: 7474
     leader.vm.network "forwarded_port", guest: 7687, host: 7687
+    # this rebuilds SPADE on the leader every provision
+    leader.vm.provision "shell", run: "always", inline: <<-SHELL
+      cd SPADE
+      # Build SPADE
+      ./configure
+      make KERNEL_MODULES=false
+    SHELL
+    # this starts SPADE on the leader
     leader.vm.provision "shell", run: "always", inline: <<-SHELL
       sudo /home/vagrant/SPADE/bin/spade start
-      sudo /home/vagrant/SPADE/lib/neo4j-community-4.1.1/bin/neo4j start
       # sleep 5
       # echo 'add storage Neo4j' | sudo /home/vagrant/SPADE/bin/spade control
     SHELL
