@@ -29,7 +29,6 @@ public class NetworkFilter extends AbstractFilter{
 
 	@Override
 	public void putEdge(AbstractEdge incomingEdge){
-
 		Packet p = null;
 		switch (incomingEdge.getAnnotation("relation_type")){
 			case "packet_content":
@@ -77,8 +76,9 @@ public class NetworkFilter extends AbstractFilter{
 				logger.log(Level.INFO, "NetworkFilter found a match between " + hint + " and " + p);
 				Packet sent = hint.direction == PacketDirection.SENT ? hint : p;
 				Packet received = hint.direction == PacketDirection.RECEIVED ? hint : p;
-				commitStitch(sent, received);
-				toRemove = p;
+				if(commitStitch(sent, received)) { // we will keep retrying until it commits
+					toRemove = p;
+				}
 			}
 		}
 		if(toRemove != null) {
@@ -87,9 +87,10 @@ public class NetworkFilter extends AbstractFilter{
 		}
 	}
 
-	private synchronized void commitStitch(Packet sent, Packet received){
+	private synchronized boolean commitStitch(Packet sent, Packet received){
 		if(!StitchReporter.isLaunched()){
 			logger.log(Level.WARNING, "WARNING! StitchReporter is not running so PANAMA cant send stitches");
+			return false;
 		} else {
 			logger.log(Level.INFO, sent.packet.getClass().getCanonicalName() + " and " + received.packet.getClass().getCanonicalName());
 			Edge e = new Edge(sent.packet, received.packet);
@@ -97,6 +98,7 @@ public class NetworkFilter extends AbstractFilter{
 			e.addAnnotation("is_panama", "true");
 			StitchReporter.getInstance().reportStitch(e);
 			logger.log(Level.INFO, "NetworkFilter sending stitch");
+			return true;
 		}
 	}
 
@@ -126,7 +128,7 @@ public class NetworkFilter extends AbstractFilter{
 			setPacketContent(content);
 		}
 
-		public void setPacketContent(String packet_content) {
+		public synchronized void setPacketContent(String packet_content) {
 			byte[] decoded = Base64.getDecoder().decode(packet_content);
 			String hex = String.format("%040x", new BigInteger(1, decoded));
 			switch (direction){
@@ -151,9 +153,10 @@ public class NetworkFilter extends AbstractFilter{
 					+ hex2decimal(len[3]); // sorry for reinventing the wheel
 
 
+			hex = hex.substring(0, length * 2);
+
 			logger.log(Level.INFO, "We found an internal packet len of:" +  length + " and the packet was " + hex + "and it was " + direction);
 
-			hex = hex.substring(0, length * 2);
 
 			String protocol = hex.substring(9 * 2, (9 * 2) + 2);
 
@@ -170,6 +173,12 @@ public class NetworkFilter extends AbstractFilter{
 
 					hex = hex.substring(16, udpLength * 2); // get just the UDP content
 					break;
+				case "06":
+					logger.log(Level.INFO, "TCP packet!");
+					int tcpLength = hex2decimal(hex.charAt(24));
+					logger.log(Level.INFO, "TCP packet! length --> " + tcpLength);
+					hex = hex.substring(tcpLength * 4 * 2); // get just the TCP content
+					break;
 			}
 
 
@@ -177,7 +186,7 @@ public class NetworkFilter extends AbstractFilter{
 			this.packetContent = hex;
 		}
 
-		public void setDirection(PacketDirection direction) {
+		public synchronized void setDirection(PacketDirection direction) {
 			boolean wasComplete = complete();
 			this.direction = direction;
 
@@ -186,21 +195,21 @@ public class NetworkFilter extends AbstractFilter{
 			}
 		}
 
-		public boolean complete(){
+		public synchronized boolean complete(){
 			return packetContent != null && direction != PacketDirection.UNKNOWN;
 		}
 
-		public boolean faulty(){
+		public synchronized boolean faulty(){
 			return complete() && (packet.getAnnotation("sender") == null
 					|| packet.getAnnotation("panama_ipid") == null
 					|| packet.getAnnotation("receiver") == null);
 		}
 
-		public String getPacketId() {
+		public synchronized String getPacketId() {
 			return packet.id();
 		}
 
-		public void mergeWith(Packet p){
+		public synchronized void mergeWith(Packet p){
 			if(p.getPacketId().equals(getPacketId())){
 				if(this.direction == PacketDirection.UNKNOWN){
 					setDirection(p.direction);
@@ -214,7 +223,7 @@ public class NetworkFilter extends AbstractFilter{
 			}
 		}
 
-		public boolean matchesWith(Packet p){
+		public synchronized boolean matchesWith(Packet p){
 			if(p.faulty() || faulty()){
 				logger.log(Level.WARNING, "Panama had detected a faulty packet cluster --> this could be caused by a CamFlow inconsistency or more likely that you are not feeding data through PanamaCamFlow");
 				return false;
@@ -224,11 +233,13 @@ public class NetworkFilter extends AbstractFilter{
 					&& packet.getAnnotation("receiver").equals(p.packet.getAnnotation("receiver")) // receivers must match
 					&& packetContent.equals(p.packetContent) // packet content must match (or fuzzy match?)
 					&& packet.getAnnotation("panama_ipid").equals(p.packet.getAnnotation("panama_ipid")) // packet ids must match
-					&& direction != p.direction; // one direction must be recieve and the other send
+					&& direction != p.direction // one direction must be recieve and the other send
+					&& ((packet.getAnnotation("seq") == null && p.packet.getAnnotation("seq") == null)
+						|| (packet.getAnnotation("seq") != null && packet.getAnnotation("seq").equals(p.packet.getAnnotation("seq"))));
 		}
 
 		@Override
-		public String toString() {
+		public synchronized String toString() {
 			return "Packet{" +
 					"sender=" + packet.getAnnotation("sender") +
 					", receiver=" + packet.getAnnotation("receiver") +
