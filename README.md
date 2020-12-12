@@ -1,6 +1,6 @@
-# SPADE & CamFlow on Fedora
+# Panama
 
-This is a minimal configuration running CamFlow and SPADE using Fedora distribution.
+This is the source code of Panama.
 
 More information on [CamFlow](http://camflow.org/) and
 [SPADE](https://github.com/ashish-gehani/SPADE/wiki) are available online.
@@ -11,8 +11,7 @@ Please, do report any issue to the
 ## Installation
 
 ```
-git clone https://github.com/CamFlow/vagrant.git
-cd ./vagrant/spade
+git clone https://github.com/falkirks/panama.git
 vagrant up
 vagrant halt
 vagrant up
@@ -32,18 +31,6 @@ uname -r
 # check services
 journalctl -b | grep camflowd # audit service logs
 journalctl -b | grep camconfd # configuration service logs
-```
-
-## Testing Installation of SPADE
-
-```shell
-vagrant ssh
-# start SPADE
-~/SPADE/bin/spade start
-# add CamFlow reporter
-echo 'add reporter CamFlow' | ~/SPADE/bin/spade control
-# stop SPADE (if you want to)
-~/SPADE/bin/spade stop
 ```
 
 ## Configuring CamFlow
